@@ -8,7 +8,11 @@ import sys
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-from skmultilearn.adapt import MLkNN
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
+from sklearn.pipeline import Pipeline
 import nltk
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
@@ -16,27 +20,9 @@ import sklearn.metrics as metrics
 
 import joblib
 
-# Ime fajla sa reprezentacijom ce biti rep.bin
-# Ime svakog obucenog klasifikatora ce biti klasifikator.bin
-
-rep_train_name = 'rep_train.bin'
-rep_test_name = 'rep_test.bin'
-rep_val_name = 'rep_val.bin'
-cf_name = 'knn.bin'
-genres_name = 'genres.bin'
-vec_name = 'vec.bin'
-
-rep_train_file = Path(rep_train_name)
-rep_test_file = Path(rep_test_name)
-rep_val_file = Path(rep_val_name)
-cf_file = Path(cf_name)
-genres_file = Path(genres_name)
-vec_file = Path(vec_name)
-
 stop_words = set(stopwords.words('english'))
 stemmer = PorterStemmer()
 minlen = 1
-
 
 def normalize(text):
     # Funkcija koja vrši normalizaciju teksta
@@ -65,6 +51,24 @@ def tokenize(text):
                 stems.append(stem)
     return stems
 
+# Ime fajla sa reprezentacijom ce biti rep.bin
+# Ime svakog obucenog klasifikatora ce biti klasifikator.bin
+
+rep_train_name = 'rep_train.bin'
+rep_test_name = 'rep_test.bin'
+rep_val_name = 'rep_val.bin'
+cf_name = 'ovr_linsvc.bin'
+genres_name = 'genres.bin'
+vec_name = 'vec.bin'
+
+rep_train_file = Path(rep_train_name)
+rep_test_file = Path(rep_test_name)
+rep_val_file = Path(rep_val_name)
+cf_file = Path(cf_name)
+genres_file = Path(genres_name)
+vec_file = Path(vec_name)
+
+stop_words = set(stopwords.words('english'))
 
 vec = None
 cf = None
@@ -84,7 +88,7 @@ if not rep_train_file.exists() or not rep_test_file.exists() or not rep_val_file
 
     # , nrows=50000) # 1000 dok pokrecem na laptopu, kasnije Google colab
     df = pd.read_csv('Klasifikatori/movies_genres_en.csv', delimiter='\t',
-                     index_col=0, nrows=50000)
+                     index_col=0, nrows=10000)
     genres = np.array(
         df.drop(['plot', 'title', 'plot_lang'], axis=1).columns.values)
 
@@ -137,29 +141,29 @@ if not cf_file.exists():
         end_time = time.time()
         print('Reprezentacije ucitane za: ', end_time-start_time, 's')
 
-    best_k = -1
+    print('Pocinjem podesavanje hiperparametara na validacionom skupu:')
+    start_time = time.time()
+
+    best_C = -1
     max_acc = -1
-    best_s = -1
     min_hamm = 1
     time_passed = sys.maxsize
     max_f1 = -1
 
-    acc_tuple = None
-    hamm_tuple = None
-    f1_tuple = None
-    time_tuple = None
+    C_range = [1, 10, 50, 100]
+    solvers = ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']
 
-    print('Pocinjem podesavanje hiperparametara na validacionom skupu:')
-    start_time = time.time()
+    for C in C_range:
+        for solver in solvers:
 
-    for k in np.arange(1, 6):
-        for s in [0.3, 0.5, 0.7, 1.0]:
-            print('k = ', k, ', s = ', s)
+            print('C = ', C, ', solver = ', solver)
 
             inner_start_time = time.time()
 
-            classifier = MLkNN(k=k, s=s)
-            prediction = classifier.fit(x_train, y_train).predict(x_val)
+            cf = OneVsRestClassifier(LinearSVC(C=C, max_iter=1000))
+
+            cf.fit(x_train, y_train)
+            prediction = cf.fit(x_train, y_train).predict(x_val)
 
             inner_end_time = time.time()
             inner_time_passed = inner_end_time - inner_start_time
@@ -173,33 +177,33 @@ if not cf_file.exists():
 
             if acc > max_acc:
                 print('Nova najbolja tacnost (', acc, '>',
-                      max_acc, ') dala je kombinacija k = ', k, ', s =', s)
+                        max_acc, ') dala je kombinacija C = ', C)
                 max_acc = acc
-                best_k = k
-                best_s = s
-                acc_tuple = (acc, hamm, f1, k, s, time)
+                best_C = C
+                best_solver = solver
+                acc_tuple = (acc, hamm, f1, C, inner_time_passed)
             if hamm < min_hamm:
                 print('Novi najbolji hemming score (', hamm, '<',
-                      min_hamm, ') dala je kombinacija k = ', k, ', s =', s)
+                        min_hamm, ') dala je kombinacija C = ', C)
                 min_hamm = hamm
-                hamm_tuple = (acc, hamm, f1, k, s, time)
+                hamm_tuple = (acc, hamm, f1, C, inner_time_passed)
             if f1 > max_f1:
                 print('Novi najbolji F1 score (', f1, '>',
-                      max_f1, ') dala je kombinacija k = ', k, ', s =', s)
+                        max_f1, ') dala je kombinacija C = ', C)
                 max_f1 = f1
-                f1_tuple = (acc, hamm, f1, k, s, time)
+                f1_tuple = (acc, hamm, f1, C, inner_time_passed)
             if inner_time_passed < time_passed:
                 print('Novo najbrze vrijeme (', inner_time_passed, '<',
-                      time_passed, ') dala je kombinacija k = ', k, ', s =', s)
+                        time_passed, ') dala je kombinacija C = ', C)
                 time_passed = inner_time_passed
-                time_tuple = (acc, hamm, f1, k, s, time)
+                time_tuple = (acc, hamm, f1, C, inner_time_passed)
 
     print('ACC:', acc_tuple)
     print('F1:', f1_tuple)
     print('HAMM:', hamm_tuple)
     print('TIME:', time_tuple)
 
-    cf = MLkNN(k=best_k, s=best_s)
+    cf = OneVsRestClassifier(LinearSVC(C=best_C, max_iter=1000))
     prediction = cf.fit(x_train, y_train).predict(x_test)
 
     print('Testni:')
@@ -229,9 +233,9 @@ while(yes_no != 'no'):
 
     res = ''
 
-    print(predicted[0, :].toarray()[0])
+    print(predicted[0])
 
-    for genre, prediction in zip(genres, predicted[0, :].toarray()[0]):
+    for genre, prediction in zip(genres, predicted[0]):
         if prediction == 1:
             res += genre + ', '
 
