@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "C:\\Users\\Savo\\Anaconda3\\envs\\mms\\python.exe"
+    "python.pythonPath": "C:\\Users\\Savo\\Anaconda3\\envs\\mms\\python.exe",
+    "python.linting.pylintEnabled": true
 }

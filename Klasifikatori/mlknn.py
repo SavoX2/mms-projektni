@@ -177,22 +177,22 @@ if not cf_file.exists():
                 max_acc = acc
                 best_k = k
                 best_s = s
-                acc_tuple = (acc, hamm, f1, k, s, time)
+                acc_tuple = (acc, hamm, f1, k, s, inner_time_passed)
             if hamm < min_hamm:
                 print('Novi najbolji hemming score (', hamm, '<',
                       min_hamm, ') dala je kombinacija k = ', k, ', s =', s)
                 min_hamm = hamm
-                hamm_tuple = (acc, hamm, f1, k, s, time)
+                hamm_tuple = (acc, hamm, f1, k, s, inner_time_passed)
             if f1 > max_f1:
                 print('Novi najbolji F1 score (', f1, '>',
                       max_f1, ') dala je kombinacija k = ', k, ', s =', s)
                 max_f1 = f1
-                f1_tuple = (acc, hamm, f1, k, s, time)
+                f1_tuple = (acc, hamm, f1, k, s, inner_time_passed)
             if inner_time_passed < time_passed:
                 print('Novo najbrze vrijeme (', inner_time_passed, '<',
                       time_passed, ') dala je kombinacija k = ', k, ', s =', s)
                 time_passed = inner_time_passed
-                time_tuple = (acc, hamm, f1, k, s, time)
+                time_tuple = (acc, hamm, f1, k, s, inner_time_passed)
 
     print('ACC:', acc_tuple)
     print('F1:', f1_tuple)
